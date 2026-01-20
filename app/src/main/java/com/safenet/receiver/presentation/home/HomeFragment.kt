@@ -71,6 +71,56 @@ class HomeFragment : Fragment() {
             btnViewScans.setOnClickListener {
                 startActivity(Intent(requireContext(), ScansActivity::class.java))
             }
+            
+            btnViewUploadHistory.setOnClickListener {
+                val intent = Intent(requireContext(), com.safenet.receiver.presentation.uploadhistory.UploadHistoryActivity::class.java)
+                startActivity(intent)
+            }
+            
+            btnExitApp.setOnClickListener {
+                showExitConfirmDialog()
+            }
+        }
+    }
+    
+    private fun showExitConfirmDialog() {
+        androidx.appcompat.app.AlertDialog.Builder(requireContext())
+            .setTitle("結束應用")
+            .setMessage("確定要結束應用嗎？\n\n將會執行以下操作：\n• 停止掃描服務\n• 清除所有暫存資料\n• 關閉應用程式")
+            .setPositiveButton("確定") { _, _ ->
+                exitApplication()
+            }
+            .setNegativeButton("取消", null)
+            .show()
+    }
+    
+    private fun exitApplication() {
+        lifecycleScope.launch {
+            try {
+                // 1. 停止掃描服務
+                if (isServiceRunning) {
+                    val intent = Intent(requireContext(), BeaconScanService::class.java)
+                    requireContext().stopService(intent)
+                    android.util.Log.d("HomeFragment", "已停止掃描服務")
+                }
+                
+                // 2. 清除所有暫存資料
+                viewModel.clearAllData()
+                android.util.Log.d("HomeFragment", "已清除所有暫存資料")
+                
+                // 3. 關閉應用
+                Toast.makeText(requireContext(), "應用已結束", Toast.LENGTH_SHORT).show()
+                
+                // 延遲 300ms 讓 Toast 顯示
+                kotlinx.coroutines.delay(300)
+                
+                // 結束 Activity 和應用程序
+                requireActivity().finishAffinity()
+                android.os.Process.killProcess(android.os.Process.myPid())
+            } catch (e: Exception) {
+                android.util.Log.e("HomeFragment", "結束應用時發生錯誤", e)
+                Toast.makeText(requireContext(), "結束失敗: ${e.message}", Toast.LENGTH_SHORT).show()
+            }
         }
     }
     
@@ -188,10 +238,18 @@ class HomeFragment : Fragment() {
     }
     
     private fun updateScanButton() {
-        binding.btnStartScan.text = if (isServiceRunning) {
-            "⏹ 停止掃描"
-        } else {
-            "▶️ 開始掃描"
+        binding.btnStartScan.apply {
+            if (isServiceRunning) {
+                text = "停止掃描"
+                backgroundTintList = android.content.res.ColorStateList.valueOf(
+                    resources.getColor(android.R.color.holo_red_light, null)
+                )
+            } else {
+                text = "開始掃描"
+                backgroundTintList = android.content.res.ColorStateList.valueOf(
+                    resources.getColor(R.color.primary, null)
+                )
+            }
         }
     }
     

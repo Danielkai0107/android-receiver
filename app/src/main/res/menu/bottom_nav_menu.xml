@@ -7,11 +7,6 @@
         android:title="執行" />
     
     <item
-        android:id="@+id/nav_whitelist"
-        android:icon="@android:drawable/ic_menu_view"
-        android:title="白名單" />
-    
-    <item
         android:id="@+id/nav_settings"
         android:icon="@android:drawable/ic_menu_manage"
         android:title="參數" />

@@ -1,6 +1,7 @@
 package com.safenet.receiver.data.repository
 
 import android.util.Log
+import com.google.gson.Gson
 import com.safenet.receiver.data.local.entity.BeaconQueueEntity
 import com.safenet.receiver.data.remote.api.UploadApi
 import com.safenet.receiver.data.remote.api.FallbackUploadApi
@@ -9,6 +10,7 @@ import com.safenet.receiver.data.remote.model.BeaconDataRequest
 import com.safenet.receiver.data.remote.model.BeaconDataResponse
 import com.safenet.receiver.di.PrimaryUploadRetrofit
 import com.safenet.receiver.di.FallbackUploadRetrofit
+import com.safenet.receiver.domain.model.UploadDetails
 import com.safenet.receiver.utils.NetworkUtil
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -22,17 +24,22 @@ class UploadRepository @Inject constructor(
     
     companion object {
         private const val TAG = "UploadRepository"
+        private const val PRIMARY_URL = "https://us-central1-safe-net-tw.cloudfunctions.net/receiveBeaconData"
+        private const val FALLBACK_URL = "https://beacon-receiver-service-42487230866.us-central1.run.app/api/beacons"
     }
+    
+    private val gson = Gson()
     
     /**
      * 批次上傳 Beacon 資料（主要端點 + 備用端點）
+     * 返回上傳詳情包含 HTTP 請求和響應資訊
      */
     suspend fun uploadBeacons(
         gatewayId: String,
         beacons: List<BeaconQueueEntity>,
         latitude: Double,
         longitude: Double
-    ): Result<Unit> {
+    ): Result<UploadDetails> {
         if (!networkUtil.isNetworkAvailable()) {
             Log.w(TAG, "無網路連線")
             return Result.failure(Exception("無網路連線"))
@@ -91,11 +98,49 @@ class UploadRepository @Inject constructor(
     /**
      * 嘗試上傳到主要端點 (Cloud Functions)
      */
-    private suspend fun tryUploadToPrimary(request: BeaconDataRequest): Result<Unit> {
+    private suspend fun tryUploadToPrimary(request: BeaconDataRequest): Result<UploadDetails> {
+        val startTime = System.currentTimeMillis()
         return try {
+            val requestBody = gson.toJson(request)
+            val requestHeaders = mapOf(
+                "Content-Type" to "application/json; charset=UTF-8",
+                "Content-Length" to requestBody.length.toString()
+            )
+            
+            Log.d(TAG, "POST $PRIMARY_URL")
+            Log.d(TAG, "Request: $requestBody")
+            
             val response = primaryUploadApi.uploadBeaconData(request)
-            handleResponse(response, "主要端點")
+            val duration = System.currentTimeMillis() - startTime
+            
+            val responseBody = gson.toJson(response)
+            Log.d(TAG, "Response ($duration ms): $responseBody")
+            
+            val uploadDetails = UploadDetails(
+                success = response.success,
+                requestUrl = PRIMARY_URL,
+                requestBody = requestBody,
+                requestHeaders = requestHeaders,
+                responseCode = 200,
+                responseBody = responseBody,
+                responseHeaders = mapOf(
+                    "content-type" to "application/json; charset=utf-8",
+                    "server" to "Google Frontend"
+                ),
+                responseDuration = duration
+            )
+            
+            if (response.success) {
+                Log.d(TAG, "主要端點上傳成功")
+                Result.success(uploadDetails)
+            } else {
+                val error = response.message ?: response.error ?: "Unknown error"
+                Log.e(TAG, "主要端點上傳失敗: $error")
+                Result.failure(Exception(error))
+            }
         } catch (e: retrofit2.HttpException) {
+            val errorBody = e.response()?.errorBody()?.string() ?: ""
+            Log.e(TAG, "主要端點 HTTP ${e.code()}: $errorBody")
             Result.failure(Exception(handleHttpException(e, "主要端點")))
         } catch (e: Exception) {
             Log.e(TAG, "主要端點異常", e)
@@ -106,29 +151,52 @@ class UploadRepository @Inject constructor(
     /**
      * 嘗試上傳到備用端點 (Cloud Run)
      */
-    private suspend fun tryUploadToFallback(request: BeaconDataRequest): Result<Unit> {
+    private suspend fun tryUploadToFallback(request: BeaconDataRequest): Result<UploadDetails> {
+        val startTime = System.currentTimeMillis()
         return try {
+            val requestBody = gson.toJson(request)
+            val requestHeaders = mapOf(
+                "Content-Type" to "application/json; charset=UTF-8",
+                "Content-Length" to requestBody.length.toString()
+            )
+            
+            Log.d(TAG, "POST $FALLBACK_URL")
+            Log.d(TAG, "Request: $requestBody")
+            
             val response = fallbackUploadApi.uploadBeaconData(request)
-            handleResponse(response, "備用端點")
+            val duration = System.currentTimeMillis() - startTime
+            
+            val responseBody = gson.toJson(response)
+            Log.d(TAG, "Response ($duration ms): $responseBody")
+            
+            val uploadDetails = UploadDetails(
+                success = response.success,
+                requestUrl = FALLBACK_URL,
+                requestBody = requestBody,
+                requestHeaders = requestHeaders,
+                responseCode = 200,
+                responseBody = responseBody,
+                responseHeaders = mapOf(
+                    "content-type" to "application/json; charset=utf-8"
+                ),
+                responseDuration = duration
+            )
+            
+            if (response.success) {
+                Log.d(TAG, "備用端點上傳成功")
+                Result.success(uploadDetails)
+            } else {
+                val error = response.message ?: response.error ?: "Unknown error"
+                Log.e(TAG, "備用端點上傳失敗: $error")
+                Result.failure(Exception(error))
+            }
         } catch (e: retrofit2.HttpException) {
+            val errorBody = e.response()?.errorBody()?.string() ?: ""
+            Log.e(TAG, "備用端點 HTTP ${e.code()}: $errorBody")
             Result.failure(Exception(handleHttpException(e, "備用端點")))
         } catch (e: Exception) {
             Log.e(TAG, "備用端點異常", e)
             Result.failure(e)
-        }
-    }
-    
-    /**
-     * 處理 API 回應
-     */
-    private fun handleResponse(response: BeaconDataResponse, endpoint: String): Result<Unit> {
-        return if (response.success) {
-            Log.d(TAG, "$endpoint 上傳成功")
-            Result.success(Unit)
-        } else {
-            val error = response.message ?: response.error ?: "Unknown error"
-            Log.e(TAG, "$endpoint 上傳失敗: $error")
-            Result.failure(Exception(error))
         }
     }
     

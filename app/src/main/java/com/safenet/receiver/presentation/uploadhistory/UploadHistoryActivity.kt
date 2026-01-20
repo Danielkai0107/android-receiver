@@ -1,4 +1,4 @@
-package com.safenet.receiver.presentation.scans
+package com.safenet.receiver.presentation.uploadhistory
 
 import android.os.Bundle
 import android.view.Menu
@@ -9,70 +9,53 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.safenet.receiver.R
-import com.safenet.receiver.databinding.ActivityScansBinding
+import com.safenet.receiver.databinding.ActivityUploadHistoryBinding
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 
 @AndroidEntryPoint
-class ScansActivity : AppCompatActivity() {
+class UploadHistoryActivity : AppCompatActivity() {
     
-    private lateinit var binding: ActivityScansBinding
-    private val viewModel: ScansViewModel by viewModels()
-    private lateinit var adapter: ScansAdapter
+    private lateinit var binding: ActivityUploadHistoryBinding
+    private val viewModel: UploadHistoryViewModel by viewModels()
+    private lateinit var adapter: UploadHistoryAdapter
     
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        binding = ActivityScansBinding.inflate(layoutInflater)
+        binding = ActivityUploadHistoryBinding.inflate(layoutInflater)
         setContentView(binding.root)
         
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
-        supportActionBar?.title = "掃描清單"
+        supportActionBar?.title = "上傳記錄"
         
         setupRecyclerView()
         observeViewModel()
     }
     
     private fun setupRecyclerView() {
-        adapter = ScansAdapter()
+        adapter = UploadHistoryAdapter()
         binding.recyclerView.apply {
-            layoutManager = LinearLayoutManager(this@ScansActivity)
-            adapter = this@ScansActivity.adapter
+            layoutManager = LinearLayoutManager(this@UploadHistoryActivity)
+            adapter = this@UploadHistoryActivity.adapter
         }
     }
     
     private fun observeViewModel() {
         lifecycleScope.launch {
-            viewModel.scannedBeacons.collect { beacons ->
-                adapter.submitList(beacons)
-                binding.tvEmpty.visibility = if (beacons.isEmpty()) {
+            viewModel.uploadHistory.collect { history ->
+                adapter.submitList(history)
+                binding.tvEmpty.visibility = if (history.isEmpty()) {
                     android.view.View.VISIBLE
                 } else {
                     android.view.View.GONE
                 }
-            }
-        }
-        
-        lifecycleScope.launch {
-            viewModel.totalCount.collect { count ->
-                binding.tvTotalCount.text = "總掃描數: $count"
-            }
-        }
-        
-        lifecycleScope.launch {
-            viewModel.whitelistCount.collect { count ->
-                binding.tvWhitelistCount.text = "白名單數: $count"
-            }
-        }
-        
-        lifecycleScope.launch {
-            viewModel.uniqueDeviceCount.collect { count ->
-                binding.tvUniqueCount.text = "不重複設備: $count"
+                binding.tvTotalCount.text = "總上傳數: ${history.size}"
             }
         }
     }
     
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
-        menuInflater.inflate(R.menu.menu_scans, menu)
+        menuInflater.inflate(R.menu.menu_upload_history, menu)
         return true
     }
     
@@ -93,9 +76,9 @@ class ScansActivity : AppCompatActivity() {
     private fun showClearConfirmDialog() {
         AlertDialog.Builder(this)
             .setTitle("清除記錄")
-            .setMessage("確定要清除所有掃描記錄嗎？")
+            .setMessage("確定要清除所有上傳記錄嗎？")
             .setPositiveButton("確定") { _, _ ->
-                viewModel.clearAllScans()
+                viewModel.clearAllUploadHistory()
             }
             .setNegativeButton("取消", null)
             .show()

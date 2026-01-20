@@ -15,7 +15,7 @@ import com.safenet.receiver.data.local.entity.WhitelistDeviceEntity
         BeaconQueueEntity::class,
         ScannedBeaconEntity::class
     ],
-    version = 4,  // 升級版本以支援 scanCount 統計欄位
+    version = 5,  // 升級版本以支援 HTTP 請求響應日誌
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {

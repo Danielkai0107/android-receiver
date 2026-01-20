@@ -112,25 +112,44 @@
             android:id="@+id/btnStartScan"
             android:layout_width="match_parent"
             android:layout_height="60dp"
-            android:text="▶️ 開始掃描"
-            android:textSize="18sp"
+            android:text="開始掃描"
+            android:textSize="16sp"
             android:layout_marginBottom="12dp" />
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btnViewScans"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="📋 查看掃描清單"
+            android:layout_height="60dp"
+            android:text="查看掃描清單"
+            android:textSize="16sp"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            android:layout_marginBottom="12dp" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnViewUploadHistory"
+            android:layout_width="match_parent"
+            android:layout_height="60dp"
+            android:text="上傳記錄"
+            android:textSize="16sp"
             style="@style/Widget.MaterialComponents.Button.OutlinedButton"
             android:layout_marginBottom="12dp" />
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btnSyncServiceUuid"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="🔄 同步服務 UUID"
-            style="@style/Widget.MaterialComponents.Button.TextButton"
-            android:textSize="12sp" />
+            android:layout_height="60dp"
+            android:text="同步 UUID"
+            android:textSize="16sp"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            android:layout_marginBottom="12dp" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnExitApp"
+            android:layout_width="match_parent"
+            android:layout_height="60dp"
+            android:text="結束應用"
+            android:textSize="16sp"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
 
     </LinearLayout>
 

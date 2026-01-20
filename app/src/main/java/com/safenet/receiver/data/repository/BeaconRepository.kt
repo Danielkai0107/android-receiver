@@ -98,6 +98,26 @@ class BeaconRepository @Inject constructor(
         beaconQueueDao.updateStatus(ids, status.name)
     }
     
+    /**
+     * 更新上傳記錄的 HTTP 資訊
+     */
+    suspend fun updateUploadDetails(
+        id: Long,
+        uploadedAt: Long,
+        requestUrl: String,
+        requestBody: String,
+        requestHeaders: String,
+        responseCode: Int,
+        responseBody: String,
+        responseHeaders: String,
+        responseDuration: Long
+    ) {
+        beaconQueueDao.updateUploadDetails(
+            id, uploadedAt, requestUrl, requestBody, requestHeaders,
+            responseCode, responseBody, responseHeaders, responseDuration
+        )
+    }
+    
     suspend fun deleteUploaded(ids: List<Long>) {
         beaconQueueDao.deleteByIds(ids)
     }

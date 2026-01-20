@@ -62,10 +62,28 @@ class UploadWorker @AssistedInject constructor(
         )
         
         return if (result.isSuccess) {
-            val ids = pendingBeacons.map { it.id }
-            // 更新狀態為 UPLOADED，不刪除記錄
-            beaconRepository.updateStatus(ids, com.safenet.receiver.domain.model.UploadStatus.UPLOADED)
-            Log.d(TAG, "背景上傳成功: ${pendingBeacons.size} 筆，已更新狀態為 UPLOADED")
+            val uploadDetails = result.getOrNull()
+            if (uploadDetails != null) {
+                // 為每個 Beacon 更新上傳詳情
+                pendingBeacons.forEach { beacon ->
+                    try {
+                        beaconRepository.updateUploadDetails(
+                            id = beacon.id,
+                            uploadedAt = uploadDetails.uploadedAt,
+                            requestUrl = uploadDetails.requestUrl,
+                            requestBody = uploadDetails.requestBody,
+                            requestHeaders = com.google.gson.Gson().toJson(uploadDetails.requestHeaders),
+                            responseCode = uploadDetails.responseCode,
+                            responseBody = uploadDetails.responseBody,
+                            responseHeaders = com.google.gson.Gson().toJson(uploadDetails.responseHeaders),
+                            responseDuration = uploadDetails.responseDuration
+                        )
+                    } catch (e: Exception) {
+                        Log.e(TAG, "更新上傳詳情失敗: ${e.message}")
+                    }
+                }
+                Log.d(TAG, "背景上傳成功: ${pendingBeacons.size} 筆，已保存 HTTP 詳情")
+            }
             Result.success()
         } else {
             Log.e(TAG, "背景上傳失敗: ${result.exceptionOrNull()?.message}")

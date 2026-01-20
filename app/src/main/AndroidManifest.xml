@@ -50,6 +50,11 @@
             android:exported="false"
             android:parentActivityName=".presentation.main.MainActivity" />
 
+        <activity
+            android:name=".presentation.uploadhistory.UploadHistoryActivity"
+            android:exported="false"
+            android:parentActivityName=".presentation.main.MainActivity" />
+
         <service
             android:name=".service.BeaconScanService"
             android:enabled="true"

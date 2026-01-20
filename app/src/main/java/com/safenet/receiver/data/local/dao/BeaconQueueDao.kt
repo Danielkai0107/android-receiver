@@ -36,6 +36,14 @@ interface BeaconQueueDao {
     """)
     fun getUploadedBeaconsFlow(): Flow<List<BeaconQueueEntity>>
     
+    // 獲取所有上傳記錄（不去重）- 用於上傳記錄頁面
+    @Query("""
+        SELECT * FROM beacon_queue 
+        WHERE uploadStatus = 'UPLOADED' 
+        ORDER BY scannedAt DESC
+    """)
+    fun getAllUploadedFlow(): Flow<List<BeaconQueueEntity>>
+    
     @Query("SELECT * FROM beacon_queue ORDER BY scannedAt DESC")
     fun getAllFlow(): Flow<List<BeaconQueueEntity>>
     
@@ -66,6 +74,31 @@ interface BeaconQueueDao {
     @Query("UPDATE beacon_queue SET uploadStatus = :status WHERE id IN (:ids)")
     suspend fun updateStatus(ids: List<Long>, status: String)
     
+    @Query("""
+        UPDATE beacon_queue 
+        SET uploadStatus = 'UPLOADED',
+            uploadedAt = :uploadedAt,
+            requestUrl = :requestUrl,
+            requestBody = :requestBody,
+            requestHeaders = :requestHeaders,
+            responseCode = :responseCode,
+            responseBody = :responseBody,
+            responseHeaders = :responseHeaders,
+            responseDuration = :responseDuration
+        WHERE id = :id
+    """)
+    suspend fun updateUploadDetails(
+        id: Long,
+        uploadedAt: Long,
+        requestUrl: String,
+        requestBody: String,
+        requestHeaders: String,
+        responseCode: Int,
+        responseBody: String,
+        responseHeaders: String,
+        responseDuration: Long
+    )
+    
     @Delete
     suspend fun delete(beacon: BeaconQueueEntity)
     
@@ -91,6 +124,10 @@ interface BeaconQueueDao {
     
     @Query("DELETE FROM beacon_queue")
     suspend fun deleteAll()
+    
+    // 刪除所有已上傳記錄
+    @Query("DELETE FROM beacon_queue WHERE uploadStatus = 'UPLOADED'")
+    suspend fun deleteAllUploaded()
     
     // 整合相同的 PENDING 記錄，只保留信號最強的
     @Query("""
