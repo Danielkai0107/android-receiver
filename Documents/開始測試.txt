@@ -1,0 +1,93 @@
+🚀 SafeNet Android 接收器 - 快速測試指南
+==========================================
+
+✅ 專案已清理完成！現在可以開始測試。
+
+📋 專案統計：
+  - 33 個 Kotlin 文件
+  - 8 個 XML 文件  
+  - 5 個 Markdown 文檔
+  - 總計 52 個文件
+
+🔌 連接實體機步驟：
+
+1️⃣ 手機開啟 USB 調試
+   設定 → 關於手機 → 連點「版本號碼」7次
+   設定 → 開發人員選項 → 開啟「USB 調試」
+
+2️⃣ 連接 USB 線
+   用 USB 線連接手機和電腦
+   手機上點「允許 USB 調試」
+
+3️⃣ 驗證連接
+   打開終端機執行：
+   adb devices
+   
+   應該看到：
+   List of devices attached
+   XXXXXXXXXX    device
+
+🚀 快速開始測試：
+
+方法 1: 使用測試腳本（推薦）
+--------------------------
+cd /Users/danielkai/Desktop/safe-net-app/android-receiver
+./test-device.sh
+
+選擇選項：
+  1) 構建並安裝（首次使用）
+  2) 僅安裝
+  3) 僅啟動
+  4) 查看 Log
+  5) 卸載
+
+方法 2: 使用 Android Studio
+--------------------------
+1. 打開 Android Studio
+2. File → Open → 選擇 android-receiver 目錄
+3. 等待 Gradle 同步完成
+4. 頂部選擇你的實體機
+5. 點擊綠色 ▶️ Run 按鈕
+
+方法 3: 手動命令行
+--------------------------
+# 構建
+./gradlew clean assembleDebug
+
+# 安裝
+adb install -r app/build/outputs/apk/debug/app-debug.apk
+
+# 啟動
+adb shell am start -n com.safenet.receiver/.presentation.main.MainActivity
+
+# 查看 Log
+adb logcat | grep -i safenet
+
+✅ 測試清單：
+
+□ App 正常啟動
+□ 授予所有權限
+□ Gateway ID 顯示
+□ 白名單同步成功
+□ Beacon 掃描運行
+□ 自動上傳正常
+
+📚 詳細文檔：
+
+- QUICK_START_GUIDE.md - 完整測試指南
+- README.md - 專案說明
+- TESTING.md - 測試清單
+
+💡 常見問題：
+
+Q: adb 找不到設備？
+A: 執行 adb kill-server && adb start-server
+
+Q: 權限請求沒彈出？
+A: 卸載後重新安裝
+
+Q: 白名單同步失敗或為空？
+A: 不影響使用，App 仍可正常掃描和上傳
+   如需白名單功能，在後台註冊 Gateway 和設備即可
+
+🎉 祝測試順利！

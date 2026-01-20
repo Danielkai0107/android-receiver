@@ -1,0 +1,80 @@
+✅ API 配置已更新為全局白名單模式！
+
+修改內容：
+━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1️⃣ 白名單 API URL
+   舊: https://us-central1-safe-net-tw.cloudfunctions.net/getDeviceWhitelist
+   新: https://getdevicewhitelist-kmzfyt3t5a-uc.a.run.app/ ✅
+
+2️⃣ API 參數
+   舊: @GET("getDeviceWhitelist") + gateway_id 參數
+   新: @GET("/") + 無參數 ✅
+
+3️⃣ 調用方式
+   舊: whitelistApi.getDeviceWhitelist(gatewayId)
+   新: whitelistApi.getDeviceWhitelist() ✅
+
+工作流程：
+━━━━━━━━━━━━━━━━━━━━━━━━━
+
+接收器 App
+  ↓
+調用 GET https://getdevicewhitelist-kmzfyt3t5a-uc.a.run.app
+  ↓
+Cloud Function 返回所有 isActive=true 的設備
+  ↓
+{
+  "success": true,
+  "devices": [所有活躍設備],
+  "count": 10,
+  "timestamp": xxx
+}
+  ↓
+App 保存到本地白名單
+  ↓
+掃描時比對 UUID + Major + Minor
+  ↓
+匹配的 Beacon 上傳到 receiveBeaconData
+  ↓
+POST https://receivebeacondata-kmzfyt3t5a-uc.a.run.app
+{
+  "gateway_id": "ANDROID-xxx",
+  "lat": 25.033,
+  "lng": 121.565,
+  "timestamp": xxx,
+  "beacons": [...]
+}
+  ↓
+Cloud Function 處理：
+  - 用 UUID+Major+Minor 找設備
+  - 找到對應的長者
+  - 更新位置（5分鐘冷卻）
+  - 發送 LINE 通知
+  ↓
+完成！
+
+優點：
+━━━━━━━━━━━━━━━━━━━━━━━━━
+✅ 所有接收器獲取相同白名單
+✅ 無需預先註冊每個接收器
+✅ 即裝即用
+✅ 集中管理（只需在 devices 集合管理）
+✅ 簡化部署流程
+
+與 Cloud Function 的完美配合：
+━━━━━━━━━━━━━━━━━━━━━━━━━
+✅ getDeviceWhitelist: 返回所有設備
+✅ receiveBeaconData: 用 UUID+Major+Minor 識別
+✅ 不依賴 gateway_id 過濾
+✅ 接收器可以自由增減
+
+測試步驟：
+━━━━━━━━━━━━━━━━━━━━━━━━━
+1. 在 Android Studio 中 Run
+2. App 打開自動同步白名單
+3. 應該會成功獲取設備列表
+4. 白名單設備數會顯示實際數量
+5. 開始掃描測試！
+
+🎉 完美對接您的 Cloud Functions！
