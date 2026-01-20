@@ -134,6 +134,10 @@ class HomeFragment : Fragment() {
                 return@launch
             }
             
+            // 清空掃描清單和統計資料
+            viewModel.clearAllData()
+            android.util.Log.d("HomeFragment", "已清空所有資料，重新開始掃描")
+            
             val intent = Intent(requireContext(), BeaconScanService::class.java)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 requireContext().startForegroundService(intent)

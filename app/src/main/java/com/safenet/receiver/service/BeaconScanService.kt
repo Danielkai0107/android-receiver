@@ -61,10 +61,20 @@ class BeaconScanService : Service(), BeaconConsumer {
         Log.d(TAG, "服務創建")
         
         beaconManager = BeaconManager.getInstanceForApplication(this)
+        
+        // 完全清除所有預設解析器
         beaconManager.beaconParsers.clear()
-        beaconManager.beaconParsers.add(
-            BeaconParser().setBeaconLayout("m:2-3=0215,i:4-19,i:20-21,i:22-23,p:24-24")
-        )
+        Log.d(TAG, "✅ 已清除所有預設解析器")
+        
+        // 只添加 iBeacon 解析器（0215 是 iBeacon 的識別碼）
+        val iBeaconParser = BeaconParser().setBeaconLayout("m:2-3=0215,i:4-19,i:20-21,i:22-23,p:24-24")
+        beaconManager.beaconParsers.add(iBeaconParser)
+        
+        Log.d(TAG, "✅ 已設定 iBeacon 解析器")
+        Log.d(TAG, "📋 解析器數量: ${beaconManager.beaconParsers.size}")
+        beaconManager.beaconParsers.forEach { parser ->
+            Log.d(TAG, "  - 解析器格式: ${parser.toString()}")
+        }
         
         // 設置掃描參數，避免 "scanning too frequently" 錯誤
         // foregroundScanPeriod: 掃描時間（毫秒）
@@ -104,10 +114,12 @@ class BeaconScanService : Service(), BeaconConsumer {
     }
     
     override fun onBeaconServiceConnect() {
-        Log.d(TAG, "Beacon 服務連接")
+        Log.d(TAG, "🔗 Beacon 服務連接")
+        Log.d(TAG, "📋 當前解析器數量: ${beaconManager.beaconParsers.size}")
         
         beaconManager.removeAllRangeNotifiers()
-        beaconManager.addRangeNotifier { beacons, _ ->
+        beaconManager.addRangeNotifier { beacons, region ->
+            Log.d(TAG, "📡 掃描回調觸發 - Region: ${region?.uniqueId}, Beacons: ${beacons.size}")
             serviceScope.launch {
                 handleBeacons(beacons.toList())
             }
@@ -115,25 +127,31 @@ class BeaconScanService : Service(), BeaconConsumer {
         
         // 開始掃描所有 Beacon
         try {
-            beaconManager.startRangingBeacons(Region("all-beacons", null, null, null))
+            val region = Region("all-beacons", null, null, null)
+            beaconManager.startRangingBeacons(region)
+            Log.d(TAG, "✅ 已啟動 Beacon 掃描，Region: ${region.uniqueId}")
         } catch (e: Exception) {
-            Log.e(TAG, "啟動掃描失敗", e)
+            Log.e(TAG, "❌ 啟動掃描失敗", e)
         }
     }
     
     private suspend fun handleBeacons(beacons: List<org.altbeacon.beacon.Beacon>) {
-        if (beacons.isEmpty()) return
+        if (beacons.isEmpty()) {
+            Log.d(TAG, "⚠️ Beacon 列表為空（本次掃描週期沒有偵測到任何設備）")
+            return
+        }
         
-        Log.d(TAG, "偵測到 ${beacons.size} 個 Beacon")
+        Log.d(TAG, "🎯 偵測到 ${beacons.size} 個 Beacon")
         
         val location = locationService.getCurrentLocation()
         if (location == null) {
-            Log.w(TAG, "無法獲取 GPS 位置，跳過")
+            Log.w(TAG, "⚠️ 無法獲取 GPS 位置，跳過此次掃描")
             return
         }
         
         beacons.forEach { beacon ->
             val uuid = beacon.id1.toString()
+            Log.d(TAG, "📍 原始 Beacon 數據 - UUID: $uuid, Major: ${beacon.id2}, Minor: ${beacon.id3}, RSSI: ${beacon.rssi}, Parser: ${beacon.parserIdentifier}")
             
             // 使用 Service UUID Repository 檢查是否為目標 UUID
             val isTargetUuid = serviceUuidRepository.isTargetUuid(uuid)

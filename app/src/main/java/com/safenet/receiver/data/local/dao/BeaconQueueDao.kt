@@ -39,16 +39,16 @@ interface BeaconQueueDao {
     @Query("SELECT * FROM beacon_queue ORDER BY scannedAt DESC")
     fun getAllFlow(): Flow<List<BeaconQueueEntity>>
     
-    // 統計不同的 Beacon 數量（去重後）
+    // 統計總記錄數（顯示總次數）
     @Query("""
-        SELECT COUNT(DISTINCT uuid || '-' || major || '-' || minor) 
+        SELECT COUNT(*) 
         FROM beacon_queue 
         WHERE uploadStatus = 'PENDING'
     """)
     fun getPendingCountFlow(): Flow<Int>
     
     @Query("""
-        SELECT COUNT(DISTINCT uuid || '-' || major || '-' || minor) 
+        SELECT COUNT(*) 
         FROM beacon_queue 
         WHERE uploadStatus = 'UPLOADED'
     """)
@@ -88,6 +88,9 @@ interface BeaconQueueDao {
     
     @Query("SELECT COUNT(*) FROM beacon_queue")
     suspend fun getCount(): Int
+    
+    @Query("DELETE FROM beacon_queue")
+    suspend fun deleteAll()
     
     // 整合相同的 PENDING 記錄，只保留信號最強的
     @Query("""

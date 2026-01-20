@@ -175,6 +175,18 @@ open class MainViewModel @Inject constructor(
         _uiState.update { it.copy(syncError = null) }
     }
     
+    fun clearAllData() {
+        viewModelScope.launch {
+            // 清空掃描清單
+            scannedBeaconDao.deleteAll()
+            // 清空上傳佇列和統計資料
+            beaconRepository.clearAll()
+            // 重置最遠距離
+            beaconRepository.resetMaxDistance()
+            Log.d(TAG, "已清空所有掃描和統計資料")
+        }
+    }
+    
     fun updatePermissionsState(context: android.content.Context) {
         val permissions = PermissionsState(
             location = hasLocationPermission(context),

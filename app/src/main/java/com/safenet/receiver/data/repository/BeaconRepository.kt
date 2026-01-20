@@ -131,4 +131,12 @@ class BeaconRepository @Inject constructor(
         val oneDayAgo = System.currentTimeMillis() - 24 * 60 * 60 * 1000
         beaconQueueDao.deleteOldUploaded(oneDayAgo)
     }
+    
+    /**
+     * 清空所有上傳佇列記錄（開始掃描時使用）
+     */
+    suspend fun clearAll() {
+        beaconQueueDao.deleteAll()
+        Log.d(TAG, "已清空所有上傳佇列記錄")
+    }
 }
