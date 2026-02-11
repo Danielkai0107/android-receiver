@@ -45,7 +45,8 @@ class BeaconScanService : Service(), BeaconConsumer {
     lateinit var serviceUuidRepository: ServiceUuidRepository
     
     private lateinit var beaconManager: BeaconManager
-    private val serviceScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
+    // 使用 IO 線程處理掃描和 DB 寫入，避免與 UI 主線程競爭
+    private val serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private var uploadJob: Job? = null
     
     private var gatewayId: String? = null
@@ -85,11 +86,12 @@ class BeaconScanService : Service(), BeaconConsumer {
         beaconManager.foregroundScanPeriod = 2200L   // 前景掃描 2.2 秒（涵蓋多次 Beacon 廣播）
         beaconManager.foregroundBetweenScanPeriod = 2000L  // 間隔 2 秒
         
-        // 背景掃描參數
-        beaconManager.backgroundScanPeriod = 2200L   // 背景也掃 2.2 秒
-        beaconManager.backgroundBetweenScanPeriod = 5000L  // 背景間隔 5 秒（省電）
+        // 背景參數設為與前景一致，確保 Activity 切換時不會降級
+        // （此 App 以前景服務長期運行，不需要省電降級）
+        beaconManager.backgroundScanPeriod = 2200L
+        beaconManager.backgroundBetweenScanPeriod = 2000L
         
-        Log.d(TAG, "掃描參數：前景掃描 2.2 秒 / 間隔 2 秒，背景掃描 2.2 秒 / 間隔 5 秒")
+        Log.d(TAG, "掃描參數：前景/背景統一 → 掃描 2.2 秒 / 間隔 2 秒（不因 Activity 切換而改變）")
         
         beaconManager.bind(this)
     }
@@ -129,6 +131,10 @@ class BeaconScanService : Service(), BeaconConsumer {
     override fun onBeaconServiceConnect() {
         Log.d(TAG, "🔗 Beacon 服務連接")
         Log.d(TAG, "📋 當前解析器數量: ${beaconManager.beaconParsers.size}")
+        
+        // 強制鎖定前景掃描模式，不因 Activity 生命週期切換而降級
+        beaconManager.backgroundMode = false
+        Log.d(TAG, "🔒 已鎖定前景掃描模式")
         
         beaconManager.removeAllRangeNotifiers()
         beaconManager.addRangeNotifier { beacons, region ->
@@ -322,6 +328,12 @@ class BeaconScanService : Service(), BeaconConsumer {
     }
     
     private fun updateNotification() {
+        // 每次掃描回調都強制前景模式，防止 AltBeacon 自動切回背景
+        if (beaconManager.backgroundMode) {
+            beaconManager.backgroundMode = false
+            Log.d(TAG, "🔒 重新鎖定前景掃描模式")
+        }
+        
         val notification = NotificationCompat.Builder(this, ReceiverApplication.SCAN_CHANNEL_ID)
             .setContentTitle(getString(R.string.app_name))
             .setContentText("已掃描: $scannedCount 個設備")
