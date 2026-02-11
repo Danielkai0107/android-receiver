@@ -17,7 +17,8 @@ class ScansViewModel @Inject constructor(
     private val scannedBeaconDao: ScannedBeaconDao
 ) : ViewModel() {
     
-    val scannedBeacons: StateFlow<List<ScannedBeacon>> = scannedBeaconDao.getRecentScansFlow()
+    // 僅顯示符合目標 UUID 的裝置
+    val scannedBeacons: StateFlow<List<ScannedBeacon>> = scannedBeaconDao.getRecentTargetUuidScansFlow()
         .map { entities ->
             entities.map { entity ->
                 ScannedBeacon(

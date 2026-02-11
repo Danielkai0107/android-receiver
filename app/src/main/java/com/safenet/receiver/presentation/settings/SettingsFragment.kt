@@ -12,6 +12,7 @@ import androidx.lifecycle.lifecycleScope
 import com.safenet.receiver.databinding.FragmentSettingsBinding
 import com.safenet.receiver.utils.PreferenceManager
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.launch
 
 @AndroidEntryPoint
@@ -58,13 +59,29 @@ class SettingsFragment : Fragment() {
                 showGpsFrequencyDialog()
             }
             
+            // 數據保留時間
+            layoutDataRetention.setOnClickListener {
+                showDataRetentionDialog()
+            }
+
             // 離線快取上限
             layoutCacheLimit.setOnClickListener {
                 showCacheLimitDialog()
             }
+
+            // 上傳 URL 儲存
+            btnSaveUploadUrl.setOnClickListener {
+                val url = etUploadUrl.text?.toString()?.trim() ?: ""
+                if (url.isNotEmpty()) {
+                    viewModel.saveUploadUrl(url)
+                    Toast.makeText(requireContext(), "上傳 URL 已儲存", Toast.LENGTH_SHORT).show()
+                } else {
+                    Toast.makeText(requireContext(), "請輸入 URL", Toast.LENGTH_SHORT).show()
+                }
+            }
         }
     }
-    
+
     private fun observeViewModel() {
         viewLifecycleOwner.lifecycleScope.launch {
             viewModel.scanFrequency.collect { value ->
@@ -93,6 +110,18 @@ class SettingsFragment : Fragment() {
         viewLifecycleOwner.lifecycleScope.launch {
             viewModel.offlineCacheLimit.collect { value ->
                 binding.tvOfflineCacheLimit.text = "$value 筆"
+            }
+        }
+
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewModel.dataRetentionDays.collect { value ->
+                binding.tvDataRetention.text = "$value 天"
+            }
+        }
+
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewModel.uploadUrl.take(1).collect { url ->
+                binding.etUploadUrl.setText(url)
             }
         }
     }
@@ -149,6 +178,19 @@ class SettingsFragment : Fragment() {
             .show()
     }
     
+    private fun showDataRetentionDialog() {
+        val options = arrayOf("7 天", "14 天", "30 天（預設）", "60 天", "90 天")
+        val values = arrayOf(7, 14, 30, 60, 90)
+
+        AlertDialog.Builder(requireContext())
+            .setTitle("數據保留時間")
+            .setItems(options) { _, which ->
+                viewModel.updateDataRetentionDays(values[which])
+                Toast.makeText(requireContext(), "已設定為 ${options[which]}", Toast.LENGTH_SHORT).show()
+            }
+            .show()
+    }
+
     private fun showCacheLimitDialog() {
         val options = arrayOf("500 筆", "1000 筆（預設）", "1500 筆", "2000 筆")
         val values = arrayOf(500, 1000, 1500, 2000)

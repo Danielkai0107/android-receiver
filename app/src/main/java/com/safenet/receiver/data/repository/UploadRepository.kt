@@ -12,6 +12,8 @@ import com.safenet.receiver.di.PrimaryUploadRetrofit
 import com.safenet.receiver.di.FallbackUploadRetrofit
 import com.safenet.receiver.domain.model.UploadDetails
 import com.safenet.receiver.utils.NetworkUtil
+import com.safenet.receiver.utils.PreferenceManager
+import kotlinx.coroutines.flow.first
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -19,12 +21,12 @@ import javax.inject.Singleton
 class UploadRepository @Inject constructor(
     @PrimaryUploadRetrofit private val primaryUploadApi: UploadApi,
     @FallbackUploadRetrofit private val fallbackUploadApi: FallbackUploadApi,
-    private val networkUtil: NetworkUtil
+    private val networkUtil: NetworkUtil,
+    private val preferenceManager: PreferenceManager
 ) {
-    
+
     companion object {
         private const val TAG = "UploadRepository"
-        private const val PRIMARY_URL = "https://us-central1-safe-net-tw.cloudfunctions.net/receiveBeaconData"
         private const val FALLBACK_URL = "https://beacon-receiver-service-42487230866.us-central1.run.app/api/beacons"
     }
     
@@ -96,9 +98,10 @@ class UploadRepository @Inject constructor(
     }
     
     /**
-     * 嘗試上傳到主要端點 (Cloud Functions)
+     * 嘗試上傳到主要端點（使用本機儲存的上傳 URL）
      */
     private suspend fun tryUploadToPrimary(request: BeaconDataRequest): Result<UploadDetails> {
+        val uploadUrl = preferenceManager.getUploadUrl().first()
         val startTime = System.currentTimeMillis()
         return try {
             val requestBody = gson.toJson(request)
@@ -106,11 +109,11 @@ class UploadRepository @Inject constructor(
                 "Content-Type" to "application/json; charset=UTF-8",
                 "Content-Length" to requestBody.length.toString()
             )
-            
-            Log.d(TAG, "POST $PRIMARY_URL")
+
+            Log.d(TAG, "POST $uploadUrl")
             Log.d(TAG, "Request: $requestBody")
-            
-            val response = primaryUploadApi.uploadBeaconData(request)
+
+            val response = primaryUploadApi.uploadBeaconDataToUrl(uploadUrl, request)
             val duration = System.currentTimeMillis() - startTime
             
             val responseBody = gson.toJson(response)
@@ -118,7 +121,7 @@ class UploadRepository @Inject constructor(
             
             val uploadDetails = UploadDetails(
                 success = response.success,
-                requestUrl = PRIMARY_URL,
+                requestUrl = uploadUrl,
                 requestBody = requestBody,
                 requestHeaders = requestHeaders,
                 responseCode = 200,

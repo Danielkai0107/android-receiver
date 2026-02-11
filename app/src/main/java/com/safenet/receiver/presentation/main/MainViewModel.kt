@@ -46,7 +46,8 @@ open class MainViewModel @Inject constructor(
                 beaconRepository.getUploadedCountFlow(),
                 beaconRepository.maxDistance,
                 scannedBeaconDao.getTotalCountFlow(),
-                serviceUuidRepository.serviceUuids
+                serviceUuidRepository.serviceUuids,
+                preferenceManager.getUploadEnabled()
             ) { values: Array<*> ->
                 val gatewayId = values[0] as? String
                 val pending = values[1] as? Int ?: 0
@@ -55,7 +56,8 @@ open class MainViewModel @Inject constructor(
                 val scanned = values[4] as? Int ?: 0
                 @Suppress("UNCHECKED_CAST")
                 val serviceUuidsSet = values[5] as? Set<String> ?: emptySet()
-                
+                val uploadEnabled = values[6] as? Boolean ?: true
+
                 _uiState.update { it.copy(
                     gatewayId = gatewayId ?: "未設定",
                     scannedCount = scanned,
@@ -63,7 +65,8 @@ open class MainViewModel @Inject constructor(
                     pendingCount = pending,
                     maxDistance = maxDistance,
                     serviceUuidCount = serviceUuidsSet.size,
-                    serviceUuids = serviceUuidsSet.toList()
+                    serviceUuids = serviceUuidsSet.toList(),
+                    uploadEnabled = uploadEnabled
                 ) }
             }.collect()
         }
@@ -237,6 +240,12 @@ open class MainViewModel @Inject constructor(
             true
         }
     }
+
+    fun setUploadEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            preferenceManager.saveUploadEnabled(enabled)
+        }
+    }
 }
 
 data class MainUiState(
@@ -252,7 +261,8 @@ data class MainUiState(
     val permissions: PermissionsState = PermissionsState(),
     val maxDistance: Double = 0.0,  // 最遠距離（米）
     val serviceUuidCount: Int = 0,  // 服務 UUID 數量
-    val serviceUuids: List<String> = emptyList()  // Service UUID 列表
+    val serviceUuids: List<String> = emptyList(),  // Service UUID 列表
+    val uploadEnabled: Boolean = true  // 上傳開關，關閉則僅掃描
 )
 
 data class PermissionsState(

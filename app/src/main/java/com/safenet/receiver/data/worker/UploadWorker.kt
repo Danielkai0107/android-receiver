@@ -30,7 +30,13 @@ class UploadWorker @AssistedInject constructor(
     
     override suspend fun doWork(): Result {
         Log.d(TAG, "開始背景上傳任務")
-        
+
+        val uploadEnabled = preferenceManager.getUploadEnabled().first()
+        if (!uploadEnabled) {
+            Log.d(TAG, "上傳已關閉，僅掃描不上傳，跳過")
+            return Result.success()
+        }
+
         val gatewayId = preferenceManager.getGatewayId().first()
         if (gatewayId == null) {
             Log.w(TAG, "Gateway ID 未設定")

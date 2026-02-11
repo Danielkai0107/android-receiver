@@ -55,11 +55,26 @@
             android:exported="false"
             android:parentActivityName=".presentation.main.MainActivity" />
 
+        <activity
+            android:name=".presentation.devicedetail.DeviceDetailActivity"
+            android:exported="false"
+            android:parentActivityName=".presentation.scans.ScansActivity" />
+
         <service
             android:name=".service.BeaconScanService"
             android:enabled="true"
             android:exported="false"
             android:foregroundServiceType="location" />
+
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
 
         <provider
             android:name="androidx.startup.InitializationProvider"

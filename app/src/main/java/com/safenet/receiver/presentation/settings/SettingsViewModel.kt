@@ -27,7 +27,13 @@ class SettingsViewModel @Inject constructor(
     
     val offlineCacheLimit: StateFlow<Int> = preferenceManager.getOfflineCacheLimit()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(), PreferenceManager.DEFAULT_OFFLINE_CACHE_LIMIT)
-    
+
+    val dataRetentionDays: StateFlow<Int> = preferenceManager.getDataRetentionDays()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(), PreferenceManager.DEFAULT_DATA_RETENTION_DAYS)
+
+    val uploadUrl: StateFlow<String> = preferenceManager.getUploadUrl()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(), PreferenceManager.DEFAULT_UPLOAD_URL)
+
     fun updateScanFrequency(seconds: Int) {
         viewModelScope.launch {
             preferenceManager.saveScanFrequency(seconds)
@@ -55,6 +61,18 @@ class SettingsViewModel @Inject constructor(
     fun updateOfflineCacheLimit(limit: Int) {
         viewModelScope.launch {
             preferenceManager.saveOfflineCacheLimit(limit)
+        }
+    }
+
+    fun updateDataRetentionDays(days: Int) {
+        viewModelScope.launch {
+            preferenceManager.saveDataRetentionDays(days)
+        }
+    }
+
+    fun saveUploadUrl(url: String) {
+        viewModelScope.launch {
+            preferenceManager.saveUploadUrl(url)
         }
     }
 }

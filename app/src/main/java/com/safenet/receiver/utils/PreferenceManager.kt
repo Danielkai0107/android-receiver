@@ -26,8 +26,13 @@ class PreferenceManager @Inject constructor(
         val GPS_UPDATE_FREQUENCY = intPreferencesKey("gps_update_frequency")  // 分鐘
         val OFFLINE_CACHE_LIMIT = intPreferencesKey("offline_cache_limit")  // 筆數
         val IS_FIRST_LAUNCH = booleanPreferencesKey("is_first_launch")  // 是否首次啟動
+        val UPLOAD_URL = stringPreferencesKey("upload_url")  // 上傳 API 完整 URL
+        val UPLOAD_ENABLED = booleanPreferencesKey("upload_enabled")  // 上傳開關
+        val DATA_RETENTION_DAYS = intPreferencesKey("data_retention_days")  // 數據保留天數
 
         const val DEFAULT_SCAN_FREQUENCY = 5
+        const val DEFAULT_DATA_RETENTION_DAYS = 30
+        const val DEFAULT_UPLOAD_URL = "https://us-central1-safe-net-tw.cloudfunctions.net/receiveBeaconData"
         const val DEFAULT_UPLOAD_INTERVAL = 60
         const val DEFAULT_WHITELIST_SYNC_INTERVAL = 10
         const val DEFAULT_GPS_UPDATE_FREQUENCY = 2
@@ -92,6 +97,36 @@ class PreferenceManager @Inject constructor(
 
     fun getOfflineCacheLimit(): Flow<Int> = dataStore.data.map { preferences ->
         preferences[OFFLINE_CACHE_LIMIT] ?: DEFAULT_OFFLINE_CACHE_LIMIT
+    }
+
+    suspend fun saveUploadUrl(url: String) {
+        dataStore.edit { preferences ->
+            preferences[UPLOAD_URL] = url.trim().ifEmpty { null } ?: DEFAULT_UPLOAD_URL
+        }
+    }
+
+    fun getUploadUrl(): Flow<String> = dataStore.data.map { preferences ->
+        preferences[UPLOAD_URL] ?: DEFAULT_UPLOAD_URL
+    }
+
+    suspend fun saveUploadEnabled(enabled: Boolean) {
+        dataStore.edit { preferences ->
+            preferences[UPLOAD_ENABLED] = enabled
+        }
+    }
+
+    fun getUploadEnabled(): Flow<Boolean> = dataStore.data.map { preferences ->
+        preferences[UPLOAD_ENABLED] ?: true
+    }
+
+    suspend fun saveDataRetentionDays(days: Int) {
+        dataStore.edit { preferences ->
+            preferences[DATA_RETENTION_DAYS] = days
+        }
+    }
+
+    fun getDataRetentionDays(): Flow<Int> = dataStore.data.map { preferences ->
+        preferences[DATA_RETENTION_DAYS] ?: DEFAULT_DATA_RETENTION_DAYS
     }
 
     /**

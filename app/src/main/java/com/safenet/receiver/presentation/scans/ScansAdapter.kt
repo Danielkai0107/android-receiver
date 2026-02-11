@@ -12,7 +12,9 @@ import java.text.SimpleDateFormat
 import java.util.*
 
 class ScansAdapter : ListAdapter<ScannedBeacon, ScansAdapter.ViewHolder>(DiffCallback()) {
-    
+
+    var onItemClick: ((ScannedBeacon) -> Unit)? = null
+
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
         val binding = ItemScannedBeaconBinding.inflate(
             LayoutInflater.from(parent.context),
@@ -26,11 +28,12 @@ class ScansAdapter : ListAdapter<ScannedBeacon, ScansAdapter.ViewHolder>(DiffCal
         holder.bind(getItem(position))
     }
     
-    class ViewHolder(
+    inner class ViewHolder(
         private val binding: ItemScannedBeaconBinding
     ) : RecyclerView.ViewHolder(binding.root) {
-        
+
         fun bind(beacon: ScannedBeacon) {
+            binding.root.setOnClickListener { onItemClick?.invoke(beacon) }
             binding.apply {
                 // 顯示完整 UUID
                 tvUuid.text = beacon.uuid

@@ -50,10 +50,15 @@ class BeaconScanService : Service(), BeaconConsumer {
     
     private var gatewayId: String? = null
     private var scannedCount = 0
+
+    /** 追蹤中的目標 UUID 設備（UUID+Major+Minor），用於記錄「暫無訊號」 */
+    data class DeviceKey(val uuid: String, val major: Int, val minor: Int)
+    private val trackedDevices = mutableSetOf<DeviceKey>()
     
     companion object {
         private const val TAG = "BeaconScanService"
         private const val NOTIFICATION_ID = 1001
+        const val NO_SIGNAL_RSSI = -999  // sentinel 值，表示「暫無訊號」
     }
     
     override fun onCreate() {
@@ -76,17 +81,15 @@ class BeaconScanService : Service(), BeaconConsumer {
             Log.d(TAG, "  - 解析器格式: ${parser.toString()}")
         }
         
-        // 設置掃描參數，避免 "scanning too frequently" 錯誤
-        // foregroundScanPeriod: 掃描時間（毫秒）
-        // foregroundBetweenScanPeriod: 兩次掃描之間的間隔（毫秒）
-        beaconManager.foregroundScanPeriod = 1100L  // 掃描 1.1 秒
-        beaconManager.foregroundBetweenScanPeriod = 5000L  // 間隔 5 秒（符合預設值）
+        // 設置掃描參數：加長掃描時間、縮短間隔，提高偵測率
+        beaconManager.foregroundScanPeriod = 2200L   // 前景掃描 2.2 秒（涵蓋多次 Beacon 廣播）
+        beaconManager.foregroundBetweenScanPeriod = 2000L  // 間隔 2 秒
         
-        // 背景掃描參數（如果需要）
-        beaconManager.backgroundScanPeriod = 1100L
-        beaconManager.backgroundBetweenScanPeriod = 10000L  // 背景間隔更長，節省電量
+        // 背景掃描參數
+        beaconManager.backgroundScanPeriod = 2200L   // 背景也掃 2.2 秒
+        beaconManager.backgroundBetweenScanPeriod = 5000L  // 背景間隔 5 秒（省電）
         
-        Log.d(TAG, "掃描參數：掃描 1.1 秒，間隔 5 秒")
+        Log.d(TAG, "掃描參數：前景掃描 2.2 秒 / 間隔 2 秒，背景掃描 2.2 秒 / 間隔 5 秒")
         
         beaconManager.bind(this)
     }
@@ -105,6 +108,16 @@ class BeaconScanService : Service(), BeaconConsumer {
             } else {
                 Log.d(TAG, "✅ Gateway ID 已設定: $gatewayId")
             }
+
+            // 載入追蹤設備列表（恢復之前追蹤的設備）
+            loadTrackedDevices()
+
+            // 啟動時執行一次過期數據清理
+            val retentionDays = preferenceManager.getDataRetentionDays().first()
+            val cutoff = System.currentTimeMillis() - (retentionDays * 24L * 60 * 60 * 1000L)
+            val deletedCount = scannedBeaconDao.deleteOlderThanTimestamp(cutoff)
+            Log.d(TAG, "🧹 已清理 $retentionDays 天前的掃描記錄")
+
             startUploadScheduler()
         }
         
@@ -136,19 +149,19 @@ class BeaconScanService : Service(), BeaconConsumer {
     }
     
     private suspend fun handleBeacons(beacons: List<org.altbeacon.beacon.Beacon>) {
-        if (beacons.isEmpty()) {
-            Log.d(TAG, "⚠️ Beacon 列表為空（本次掃描週期沒有偵測到任何設備）")
-            return
+        val now = System.currentTimeMillis()
+
+        // 本輪掃到的目標設備
+        val detectedTargetKeys = mutableSetOf<DeviceKey>()
+
+        if (beacons.isNotEmpty()) {
+            Log.d(TAG, "🎯 偵測到 ${beacons.size} 個 Beacon")
+        } else {
+            Log.d(TAG, "⚠️ 本次掃描週期沒有偵測到任何設備")
         }
-        
-        Log.d(TAG, "🎯 偵測到 ${beacons.size} 個 Beacon")
-        
+
         val location = locationService.getCurrentLocation()
-        if (location == null) {
-            Log.w(TAG, "⚠️ 無法獲取 GPS 位置，跳過此次掃描")
-            return
-        }
-        
+
         beacons.forEach { beacon ->
             val uuid = beacon.id1.toString()
             Log.d(TAG, "📍 原始 Beacon 數據 - UUID: $uuid, Major: ${beacon.id2}, Minor: ${beacon.id3}, RSSI: ${beacon.rssi}, Parser: ${beacon.parserIdentifier}")
@@ -163,34 +176,67 @@ class BeaconScanService : Service(), BeaconConsumer {
                 minor = beacon.id3.toInt(),
                 rssi = beacon.rssi,
                 distance = beacon.distance,
-                isInWhitelist = isTargetUuid,  // 標記是否為目標 UUID
-                scannedAt = System.currentTimeMillis()
+                isInWhitelist = isTargetUuid,
+                scannedAt = now
             )
             scannedBeaconDao.insert(scannedBeaconEntity)
             scannedCount++
             
-            // 只處理目標 UUID 的 Beacon
+            // 處理目標 UUID 的 Beacon
             if (isTargetUuid) {
-                val domainBeacon = Beacon(
-                    uuid = uuid,
-                    major = beacon.id2.toInt(),
-                    minor = beacon.id3.toInt(),
-                    rssi = beacon.rssi,
-                    distance = beacon.distance,
-                    latitude = location.latitude,
-                    longitude = location.longitude,
-                    scannedAt = System.currentTimeMillis()
-                )
-                
-                beaconRepository.addToQueue(domainBeacon)
+                val key = DeviceKey(uuid, beacon.id2.toInt(), beacon.id3.toInt())
+                detectedTargetKeys.add(key)
+                trackedDevices.add(key)  // 加入追蹤列表
+
+                if (location != null) {
+                    val domainBeacon = Beacon(
+                        uuid = uuid,
+                        major = beacon.id2.toInt(),
+                        minor = beacon.id3.toInt(),
+                        rssi = beacon.rssi,
+                        distance = beacon.distance,
+                        latitude = location.latitude,
+                        longitude = location.longitude,
+                        scannedAt = now
+                    )
+                    beaconRepository.addToQueue(domainBeacon)
+                }
                 
                 Log.d(TAG, "✅ 目標 UUID Beacon: $uuid, Major=${beacon.id2}, Minor=${beacon.id3}, RSSI=${beacon.rssi}, 距離=${String.format("%.2f", beacon.distance)}m")
             } else {
                 Log.d(TAG, "⏭️ 非目標 UUID，僅記錄: $uuid")
             }
         }
-        
+
+        // 對追蹤列表中但本輪未掃到的目標設備，寫入「暫無訊號」記錄（rssi = -999）
+        val missingDevices = trackedDevices - detectedTargetKeys
+        if (missingDevices.isNotEmpty()) {
+            Log.d(TAG, "📝 ${missingDevices.size} 個追蹤設備未偵測到，記錄暫無訊號")
+            missingDevices.forEach { device ->
+                val noSignalEntity = com.safenet.receiver.data.local.entity.ScannedBeaconEntity(
+                    uuid = device.uuid,
+                    major = device.major,
+                    minor = device.minor,
+                    rssi = NO_SIGNAL_RSSI,
+                    distance = 0.0,
+                    isInWhitelist = true,
+                    scannedAt = now
+                )
+                scannedBeaconDao.insert(noSignalEntity)
+                Log.d(TAG, "📝 暫無訊號: ${device.uuid} M:${device.major} m:${device.minor}")
+            }
+        }
+
         updateNotification()
+    }
+
+    /** 服務啟動時從 DB 載入所有曾掃到的目標設備，恢復追蹤列表 */
+    private suspend fun loadTrackedDevices() {
+        val entities = scannedBeaconDao.getDistinctTargetDevices()
+        entities.forEach { entity ->
+            trackedDevices.add(DeviceKey(entity.uuid, entity.major, entity.minor))
+        }
+        Log.d(TAG, "✅ 已載入 ${trackedDevices.size} 個追蹤設備")
     }
     
     private fun startUploadScheduler() {

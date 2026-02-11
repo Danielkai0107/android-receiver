@@ -1,17 +1,24 @@
 package com.safenet.receiver.presentation.scans
 
+import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import android.view.Menu
 import android.view.MenuItem
+import android.widget.Toast
 import androidx.activity.viewModels
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.safenet.receiver.R
+import com.safenet.receiver.data.repository.ExportRepository
 import com.safenet.receiver.databinding.ActivityScansBinding
+import com.safenet.receiver.domain.model.ScannedBeacon
+import com.safenet.receiver.presentation.devicedetail.DeviceDetailActivity
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 @AndroidEntryPoint
 class ScansActivity : AppCompatActivity() {
@@ -19,6 +26,9 @@ class ScansActivity : AppCompatActivity() {
     private lateinit var binding: ActivityScansBinding
     private val viewModel: ScansViewModel by viewModels()
     private lateinit var adapter: ScansAdapter
+
+    @Inject
+    lateinit var exportRepository: ExportRepository
     
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -33,7 +43,15 @@ class ScansActivity : AppCompatActivity() {
     }
     
     private fun setupRecyclerView() {
-        adapter = ScansAdapter()
+        adapter = ScansAdapter().apply {
+            onItemClick = { beacon ->
+                startActivity(Intent(this@ScansActivity, DeviceDetailActivity::class.java).apply {
+                    putExtra("uuid", beacon.uuid)
+                    putExtra("major", beacon.major)
+                    putExtra("minor", beacon.minor)
+                })
+            }
+        }
         binding.recyclerView.apply {
             layoutManager = LinearLayoutManager(this@ScansActivity)
             adapter = this@ScansActivity.adapter
@@ -78,6 +96,10 @@ class ScansActivity : AppCompatActivity() {
     
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         return when (item.itemId) {
+            R.id.action_export -> {
+                exportCSV()
+                true
+            }
             R.id.action_clear -> {
                 showClearConfirmDialog()
                 true
@@ -88,6 +110,31 @@ class ScansActivity : AppCompatActivity() {
             }
             else -> super.onOptionsItemSelected(item)
         }
+    }
+
+    private fun exportCSV() {
+        lifecycleScope.launch {
+            Toast.makeText(this@ScansActivity, "正在匯出...", Toast.LENGTH_SHORT).show()
+            val result = exportRepository.exportToCSV()
+            if (result.isSuccess) {
+                shareFile(result.getOrNull()!!)
+            } else {
+                Toast.makeText(
+                    this@ScansActivity,
+                    "匯出失敗: ${result.exceptionOrNull()?.message}",
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
+        }
+    }
+
+    private fun shareFile(uri: Uri) {
+        val intent = Intent(Intent.ACTION_SEND).apply {
+            type = "text/csv"
+            putExtra(Intent.EXTRA_STREAM, uri)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        startActivity(Intent.createChooser(intent, "匯出掃描記錄"))
     }
     
     private fun showClearConfirmDialog() {

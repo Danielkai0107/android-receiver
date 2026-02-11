@@ -67,7 +67,11 @@ class HomeFragment : Fragment() {
             btnSyncServiceUuid.setOnClickListener {
                 viewModel.syncServiceUuid()
             }
-            
+
+            switchUploadEnabled.setOnCheckedChangeListener { _, isChecked ->
+                viewModel.setUploadEnabled(isChecked)
+            }
+
             btnViewScans.setOnClickListener {
                 startActivity(Intent(requireContext(), ScansActivity::class.java))
             }
@@ -161,7 +165,12 @@ class HomeFragment : Fragment() {
             }
             
             btnSyncServiceUuid.isEnabled = !state.isSyncing
-            
+
+            if (binding.switchUploadEnabled.isChecked != state.uploadEnabled) {
+                binding.switchUploadEnabled.isChecked = state.uploadEnabled
+            }
+            binding.tvUploadSwitchHint.text = if (state.uploadEnabled) "已開啟上傳" else "僅掃描"
+
             if (state.syncError != null && !state.syncError.contains("未註冊")) {
                 Toast.makeText(requireContext(), state.syncError, Toast.LENGTH_SHORT).show()
             }
